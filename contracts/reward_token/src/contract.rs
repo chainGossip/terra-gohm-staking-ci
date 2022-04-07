@@ -166,7 +166,7 @@ fn try_burn(
             }
             Ok(response.add_messages(messages))
         }
-        Err(err) => return Err(err),
+        Err(err) => Err(err),
     }
 }
 

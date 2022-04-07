@@ -1,2 +1,0 @@
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/panda/kts/terra/terra-gOHM-staking/packages/gohm_staking/target/rls/debug/build/typenum-ac05385cff7c2a5e/out/consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=/home/panda/kts/terra/terra-gOHM-staking/packages/gohm_staking/target/rls/debug/build/typenum-ac05385cff7c2a5e/out/op.rs

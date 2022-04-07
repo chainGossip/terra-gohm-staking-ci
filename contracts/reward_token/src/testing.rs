@@ -4,7 +4,7 @@ use cosmwasm_std::testing::{
 };
 use cosmwasm_std::{
     from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, OwnedDeps, Response, StdError,
-    SubMsg, Uint128, WasmMsg,
+    SubMsg, Uint128, WasmMsg, OverflowError, OverflowOperation
 };
 use cw20::{BalanceResponse, MinterResponse, TokenInfoResponse};
 use cw20_legacy::{
@@ -351,7 +351,64 @@ fn test_burn_tokens_fails_if_no_balance() {
 
     let info = mock_info("addr0000", &[]);
 
-    execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+    assert_eq!(res, ContractError::Std(StdError::overflow(OverflowError {operation: OverflowOperation::Sub, operand1: "0".to_string(), operand2: "1000000".to_string()})));
+
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
+    let token_info: TokenInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(token_info.total_supply, Uint128::from(1000000u128));
+}
+
+#[test]
+fn test_burn_tokens_success_if_with_balance() {
+    let mut deps = mock_dependencies(&[]);
+
+    let (gohm_rate, denom_rate) = initialize_reward_token(&mut deps, None, None);
+
+    let mint_amount = Uint128::from(1000000u128);
+    mint_token(
+        &mut deps,
+        gohm_rate,
+        denom_rate,
+        mint_amount,
+        "recipient".to_string(),
+    );
+
+    let amount = Uint128::from(1000000u128);
+
+    let msg = ExecuteMsg::Burn { amount };
+
+    let info = mock_info("recipient", &[]);
+
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+    println!{"res.messages = {:?}", res.messages};
+
+    assert_eq!(
+        res.messages,
+        vec![
+            SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                to_address: "recipient".to_string(),
+                amount: vec![Coin {
+                    denom: "uluna".to_string(),
+                    amount: amount * denom_rate
+                }],
+            })),
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "gohm_token".to_string(),
+                msg: to_binary(&ExecuteMsg::Transfer {
+                    recipient: "recipient".to_string(),
+                    amount: amount * gohm_rate,
+                })
+                .unwrap(),
+                funds: vec![],
+            })),
+        ]
+    );
+
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
+    let token_info: TokenInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(token_info.total_supply, Uint128::zero());
 }
 
 #[test]

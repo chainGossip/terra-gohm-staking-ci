@@ -3,8 +3,8 @@ use cosmwasm_std::testing::{
     mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
 };
 use cosmwasm_std::{
-    from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, OwnedDeps, Response, StdError,
-    SubMsg, Uint128, WasmMsg, OverflowError, OverflowOperation
+    from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, OverflowError, OverflowOperation,
+    OwnedDeps, Response, StdError, SubMsg, Uint128, WasmMsg,
 };
 use cw20::{BalanceResponse, MinterResponse, TokenInfoResponse};
 use cw20_legacy::{
@@ -352,7 +352,14 @@ fn test_burn_tokens_fails_if_no_balance() {
     let info = mock_info("addr0000", &[]);
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
-    assert_eq!(res, ContractError::Std(StdError::overflow(OverflowError {operation: OverflowOperation::Sub, operand1: "0".to_string(), operand2: "1000000".to_string()})));
+    assert_eq!(
+        res,
+        ContractError::Std(StdError::overflow(OverflowError {
+            operation: OverflowOperation::Sub,
+            operand1: "0".to_string(),
+            operand2: "1000000".to_string()
+        }))
+    );
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
     let token_info: TokenInfoResponse = from_binary(&res).unwrap();
@@ -382,7 +389,7 @@ fn test_burn_tokens_success_if_with_balance() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    println!{"res.messages = {:?}", res.messages};
+    println! {"res.messages = {:?}", res.messages};
 
     assert_eq!(
         res.messages,

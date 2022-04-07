@@ -97,7 +97,7 @@ fn try_mint(
         .funds
         .iter()
         .find(|c| c.denom == *config.denom)
-        .map(|c| Uint128::from(c.amount))
+        .map(|c| c.amount)
         .unwrap_or_else(Uint128::zero);
 
     if amount * config.denom_rate != denom_amount {
@@ -124,7 +124,7 @@ fn try_mint(
                 funds: vec![],
             }))
         }),
-        Err(err) => return Err(err),
+        Err(err) => Err(err),
     }
 }
 
@@ -141,7 +141,7 @@ fn try_burn(
     let gohm_token = deps.api.addr_humanize(&config.gohm_token)?.to_string();
 
     let querier = deps.querier;
-    let execute_res = execute_burn(deps, env.clone(), info.clone(), amount);
+    let execute_res = execute_burn(deps, env, info.clone(), amount);
     match execute_res {
         Ok(response) => {
             let mut messages: Vec<CosmosMsg> = vec![];

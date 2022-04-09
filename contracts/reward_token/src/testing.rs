@@ -469,13 +469,7 @@ fn test_transfer_tokens() {
     let mint_amount = Uint128::from(1000000u128);
     let transfer_amount = Uint128::from(500000u128);
 
-    mint_token(
-        &mut deps,
-        gohm_rate,
-        denom_rate,
-        mint_amount,
-        addr1.clone(),
-    );
+    mint_token(&mut deps, gohm_rate, denom_rate, mint_amount, addr1.clone());
 
     let info = mock_info(addr1.as_ref(), &[]);
 
@@ -491,9 +485,7 @@ fn test_transfer_tokens() {
     let res = query(
         deps.as_ref(),
         mock_env(),
-        QueryMsg::Balance {
-            address: addr1,
-        },
+        QueryMsg::Balance { address: addr1 },
     )
     .unwrap();
     let balance: BalanceResponse = from_binary(&res).unwrap();
@@ -694,7 +686,8 @@ fn test_burn_tokens_when_denom_rate_is_zero() {
 fn test_burn_tokens_when_all_rate_is_zero() {
     let mut deps = mock_dependencies(&[]);
 
-    let (gohm_rate, denom_rate) = initialize_reward_token(&mut deps, Some(Decimal::zero()), Some(Decimal::zero()));
+    let (gohm_rate, denom_rate) = 
+        initialize_reward_token(&mut deps, Some(Decimal::zero()), Some(Decimal::zero()));
 
     let mint_amount = Uint128::from(1000000u128);
     mint_token(
@@ -709,10 +702,7 @@ fn test_burn_tokens_when_all_rate_is_zero() {
 
     let res = burn_token(&mut deps, amount, "recipient".to_string());
 
-    assert_eq!(
-        res.messages,
-        vec![]
-    );
+    assert_eq!(res.messages, vec![]);
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
     let token_info: TokenInfoResponse = from_binary(&res).unwrap();

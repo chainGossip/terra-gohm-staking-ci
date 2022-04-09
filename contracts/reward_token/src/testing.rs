@@ -477,7 +477,7 @@ fn test_transfer_tokens() {
         recipient: addr2.clone(),
         amount: transfer_amount,
     };
-
+    
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(res.messages.len(), 0);
     

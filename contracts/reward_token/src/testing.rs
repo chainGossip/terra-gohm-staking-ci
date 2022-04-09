@@ -686,7 +686,7 @@ fn test_burn_tokens_when_denom_rate_is_zero() {
 fn test_burn_tokens_when_all_rate_is_zero() {
     let mut deps = mock_dependencies(&[]);
 
-    let (gohm_rate, denom_rate) = 
+    let (gohm_rate, denom_rate) =
         initialize_reward_token(&mut deps, Some(Decimal::zero()), Some(Decimal::zero()));
 
     let mint_amount = Uint128::from(1000000u128);

@@ -463,7 +463,10 @@ fn test_compute_reward() {
     let res = query(
         deps.as_ref(),
         mock_env(),
-        QueryMsg::StakerInfo { staker: "addr0000".to_string(), block_time: None },
+        QueryMsg::StakerInfo {
++            staker: "addr0000".to_string(),
++            block_time: None,
++        },
     )
     .unwrap();
     let state: StakerInfoResponse = from_binary(&res).unwrap();

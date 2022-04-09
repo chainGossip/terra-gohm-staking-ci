@@ -193,6 +193,92 @@ fn test_bond_tokens() {
 }
 
 #[test]
+fn test_bond_tokens_fails_if_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+
+    let msg = InstantiateMsg {
+        reward_token: "reward0000".to_string(),
+        staking_token: "staking0000".to_string(),
+        distribution_schedule: vec![
+            (
+                mock_env().block.time.seconds(),
+                mock_env().block.time.seconds() + 100,
+                Uint128::from(1000000u128),
+            ),
+            (
+                mock_env().block.time.seconds() + 100,
+                mock_env().block.time.seconds() + 100,
+                Uint128::from(1000000u128),
+            ),
+        ],
+        governance: "gov0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg);
+
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "addr0000".to_string(),
+        amount: Uint128::from(100u128),
+        msg: to_binary(&Cw20HookMsg::Bond {}).unwrap(),
+    });
+
+    let info = mock_info("other_staking", &[]);
+    let env = mock_env();
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
+
+    match _res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "unauthorized");
+        }
+        _ => panic!("Must return generic error"),
+    };
+}
+
+#[test]
+fn test_bond_tokens_fails_if_no_message() {
+    let mut deps = mock_dependencies(&[]);
+
+    let msg = InstantiateMsg {
+        reward_token: "reward0000".to_string(),
+        staking_token: "staking0000".to_string(),
+        distribution_schedule: vec![
+            (
+                mock_env().block.time.seconds(),
+                mock_env().block.time.seconds() + 100,
+                Uint128::from(1000000u128),
+            ),
+            (
+                mock_env().block.time.seconds() + 100,
+                mock_env().block.time.seconds() + 100,
+                Uint128::from(1000000u128),
+            ),
+        ],
+        governance: "gov0000".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[]);
+    let _res = instantiate(deps.as_mut(), mock_env(), info, msg);
+
+    let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
+        sender: "addr0000".to_string(),
+        amount: Uint128::from(100u128),
+        msg: to_binary("no data").unwrap(),
+    });
+
+    let info = mock_info("staking0000", &[]);
+    let env = mock_env();
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
+
+    match _res {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "data should be given");
+        }
+        _ => panic!("Must return generic error"),
+    };
+}
+
+#[test]
 fn test_unbond() {
     let mut deps = mock_dependencies(&[]);
 
@@ -330,7 +416,7 @@ fn test_compute_reward() {
     let msg = ExecuteMsg::Unbond {
         amount: Uint128::from(100u128),
     };
-    let _res = execute(deps.as_mut(), env, info, msg).unwrap();
+    let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
     assert_eq!(
         from_binary::<StakerInfoResponse>(
             &query(
@@ -372,6 +458,58 @@ fn test_compute_reward() {
             pending_reward: Uint128::from(3000000u128),
             bond_amount: Uint128::from(100u128),
         }
+    );
+
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::StakerInfo { 
+            staker: "addr0000".to_string(),
+            block_time: None,
+        },
+    )
+    .unwrap();
+    let state: StakerInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        state,
+        StakerInfoResponse {
+            staker: "addr0000".to_string(),
+            reward_index: Decimal::from_ratio(15000u64, 1u64),
+            pending_reward: Uint128::from(2000000u128),
+            bond_amount: Uint128::from(100u128),
+        }
+    );
+
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::State { block_time: None },
+    )
+    .unwrap();
+    let state: StateResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        state,
+        StateResponse {
+            last_distributed: mock_env().block.time.plus_seconds(110).seconds(),
+            total_bond_amount: Uint128::from(100u128),
+            global_reward_index: Decimal::from_ratio(15000u128, 1u128),
+        }
+    );
+
+    // withdraw after querying future block
+    let msg = ExecuteMsg::Withdraw {};
+    let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    assert_eq!(
+        res.messages,
+        vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "reward0000".to_string(),
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: "addr0000".to_string(),
+                amount: Uint128::from(2000000u128),
+            })
+            .unwrap(),
+            funds: vec![],
+        }))]
     );
 }
 

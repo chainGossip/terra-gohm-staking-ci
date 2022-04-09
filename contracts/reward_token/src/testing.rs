@@ -294,6 +294,47 @@ fn test_mint_tokens_when_denom_rate_is_zero() {
     assert_eq!(balance, BalanceResponse { balance: amount });
 }
 
+#[test]
+fn test_mint_tokens_when_all_rate_is_zero() {
+    let mut deps = mock_dependencies(&[]);
+
+    let (_, _) = initialize_reward_token(&mut deps, Some(Decimal::zero()), Some(Decimal::zero()));
+
+    let amount = Uint128::from(1000000u128);
+
+    let (res, _, _) = mint_token(
+        &mut deps,
+        Decimal::zero(),
+        Decimal::zero(),
+        amount,
+        "recipient".to_string(),
+    );
+
+    assert_eq!(res.messages.len(), 0);
+
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
+    let token_info: TokenInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        token_info,
+        TokenInfoResponse {
+            name: "gOHM reward token".to_string(),
+            symbol: "rgOHM".to_string(),
+            decimals: 6u8,
+            total_supply: amount
+        }
+    );
+
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Balance {
+            address: "recipient".to_string(),
+        },
+    )
+    .unwrap();
+    let balance: BalanceResponse = from_binary(&res).unwrap();
+    assert_eq!(balance, BalanceResponse { balance: amount });
+}
 // helper
 fn initialize_reward_token(
     deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier>,
@@ -389,8 +430,6 @@ fn test_burn_tokens_success_if_with_balance() {
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    println! {"res.messages = {:?}", res.messages};
-
     assert_eq!(
         res.messages,
         vec![
@@ -416,6 +455,49 @@ fn test_burn_tokens_success_if_with_balance() {
     let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
     let token_info: TokenInfoResponse = from_binary(&res).unwrap();
     assert_eq!(token_info.total_supply, Uint128::zero());
+}
+
+#[test]
+fn test_transfer_tokens() {
+    let mut deps = mock_dependencies(&[]);
+
+    let (gohm_rate, denom_rate) = initialize_reward_token(&mut deps, None, None);
+
+    let addr1 = String::from("addr0001");
+    let addr2 = String::from("addr0002");
+
+    let mint_amount = Uint128::from(1000000u128);
+    let transfer_amount = Uint128::from(500000u128);
+
+    mint_token(
+        &mut deps,
+        gohm_rate,
+        denom_rate,
+        mint_amount,
+        addr1.clone(),
+    );
+
+    let info = mock_info(addr1.as_ref(), &[]);
+
+    let msg = ExecuteMsg::Transfer {
+        recipient: addr2.clone(),
+        amount: transfer_amount,
+    };
+
+    let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    assert_eq!(res.messages.len(), 0);
+    
+    let remainder = mint_amount.checked_sub(transfer_amount).unwrap();
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Balance {
+            address: addr1,
+        },
+    )
+    .unwrap();
+    let balance: BalanceResponse = from_binary(&res).unwrap();
+    assert_eq!(balance, BalanceResponse { balance: remainder });
 }
 
 #[test]
@@ -577,6 +659,59 @@ fn test_burn_tokens_when_denom_rate_is_zero() {
             .unwrap(),
             funds: vec![],
         })),]
+    );
+
+    let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
+    let token_info: TokenInfoResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        token_info,
+        TokenInfoResponse {
+            name: "gOHM reward token".to_string(),
+            symbol: "rgOHM".to_string(),
+            decimals: 6u8,
+            total_supply: mint_amount - amount
+        }
+    );
+
+    let res = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Balance {
+            address: "recipient".to_string(),
+        },
+    )
+    .unwrap();
+    let balance: BalanceResponse = from_binary(&res).unwrap();
+    assert_eq!(
+        balance,
+        BalanceResponse {
+            balance: mint_amount - amount
+        }
+    );
+}
+
+#[test]
+fn test_burn_tokens_when_all_rate_is_zero() {
+    let mut deps = mock_dependencies(&[]);
+
+    let (gohm_rate, denom_rate) = initialize_reward_token(&mut deps, Some(Decimal::zero()), Some(Decimal::zero()));
+
+    let mint_amount = Uint128::from(1000000u128);
+    mint_token(
+        &mut deps,
+        gohm_rate,
+        denom_rate,
+        mint_amount,
+        "recipient".to_string(),
+    );
+
+    let amount = Uint128::from(1000000u128);
+
+    let res = burn_token(&mut deps, amount, "recipient".to_string());
+
+    assert_eq!(
+        res.messages,
+        vec![]
     );
 
     let res = query(deps.as_ref(), mock_env(), QueryMsg::TokenInfo {}).unwrap();
